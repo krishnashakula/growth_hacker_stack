@@ -1,3 +1,4 @@
+![CI](https://github.com/krishnashakula/growth_hacker_stack/actions/workflows/ci.yml/badge.svg)
 # 🚀 Growth-Hacker LinkedIn Automation Stack
 
 Fully self-hosted, AI-driven LinkedIn growth toolkit, featuring:
