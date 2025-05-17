@@ -1,0 +1,6 @@
+# .yamllint.yml
+extends: default
+
+rules:
+  new-lines: disable
+  truthy: disable
