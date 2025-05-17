@@ -1,4 +1,31 @@
-![CI](https://github.com/krishnashakula/growth_hacker_stack/actions/workflows/ci.yml/badge.svg)
+<!-- ──────────────────────────────── BADGES ─────────────────────────────── -->
+
+<p align="center">
+
+  <!-- CI -->
+  [![CI](https://github.com/krishnashakula/growth_hacker_stack/actions/workflows/ci.yml/badge.svg)](https://github.com/krishnashakula/growth_hacker_stack/actions/workflows/ci.yml)
+
+  <!-- Docker Pulls (Docker Hub) -->
+  [![Docker Pulls](https://img.shields.io/docker/pulls/krishnashakula/growth_hacker_stack?style=for-the-badge&logo=docker)](https://hub.docker.com/r/krishnashakula/growth_hacker_stack)
+
+  <!-- Latest Release -->
+  [![Release](https://img.shields.io/github/v/release/krishnashakula/growth_hacker_stack?style=for-the-badge)](https://github.com/krishnashakula/growth_hacker_stack/releases)
+
+  <!-- Open Issues -->
+  [![Issues](https://img.shields.io/github/issues-raw/krishnashakula/growth_hacker_stack?style=for-the-badge)](https://github.com/krishnashakula/growth_hacker_stack/issues)
+
+  <!-- License -->
+  [![License: MIT](https://img.shields.io/github/license/krishnashakula/growth_hacker_stack?style=for-the-badge)](https://github.com/krishnashakula/growth_hacker_stack/blob/main/LICENSE)
+
+  <!-- Last Commit -->
+  ![Last Commit](https://img.shields.io/github/last-commit/krishnashakula/growth_hacker_stack?style=for-the-badge)
+
+  <!-- Stars -->
+  [![Stars](https://img.shields.io/github/stars/krishnashakula/growth_hacker_stack?style=for-the-badge)](https://github.com/krishnashakula/growth_hacker_stack/stargazers)
+
+</p>
+
+<!-- ───────────────────────────────────────────────────────────────────────── -->
 # 🚀 Growth-Hacker LinkedIn Automation Stack
 
 Fully self-hosted, AI-driven LinkedIn growth toolkit, featuring:
