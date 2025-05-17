@@ -47,7 +47,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install black flake8 mypy pytest pytest-cov alembic prometheus-client \
-            types-requests types-psycopg2 
+            types-requests types-psycopg2
 
       - name: Lint with Black & Flake8
         run: |
@@ -62,6 +62,9 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
         run: |
           pytest --cov=. || echo "⚠️ no tests found, skipping"
+
+      - name: Build Docker image
+        run: docker build -t ghcr.io/${{ github.repository }}:latest .
 
       - name: Build & scan Docker image
         uses: aquasecurity/trivy-action@master
