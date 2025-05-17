@@ -13,12 +13,29 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ------------------------- #
   # n8n orchestrator          #
   # ------------------------- #
   n8n:
-    image: n8nio/n8n:latest             # Community-node capable
+    image: n8nio/n8n:latest
     restart: unless-stopped
     ports:
       - "5678:5678"
@@ -27,10 +44,27 @@ services:
     environment:
       N8N_FLAGS: --tunnel
       N8N_ENABLE_COMMUNITY_NODES: "true"
+      N8N_LOG_LEVEL: info
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_DIAGNOSTICS_CONFIG_ENABLED: "false"
     volumes:
       - ./workflows:/home/node/.n8n/workflows
+      - n8n_data:/home/node/.n8n
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ------------------------- #
   # FastAPI keyword service   #
@@ -38,12 +72,26 @@ services:
   trending_service:
     build:
       context: ./service/trending_service
+      dockerfile: Dockerfile
     env_file:
       - .env
     ports:
       - "8000:8000"
     depends_on:
-      - n8n
+      n8n:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ------------------------- #
   # Hourly LinkedIn stats pull#
@@ -51,11 +99,26 @@ services:
   analytics_fetcher:
     build:
       context: ./service/analytics_fetcher
+      dockerfile: Dockerfile
     env_file:
       - .env
     depends_on:
-      - db
-      - n8n
+      db:
+        condition: service_healthy
+      n8n:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ------------------------- #
   # Metabase dashboards       #
@@ -72,8 +135,35 @@ services:
       MB_DB_USER: ${POSTGRES_USER}
       MB_DB_PASS: ${POSTGRES_PASSWORD}
       MB_DB_HOST: db
+      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY}
+      MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL}
+      MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   db_data:
+    driver: local
+  n8n_data:
+    driver: local
