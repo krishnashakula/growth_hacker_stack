@@ -187,3 +187,4 @@ All secrets are managed in **`.env`**:
 MIT © [Krishna Shakula](https://github.com/krishnashakula)
 
 Enjoy autonomous growth! 🚀
+ECHO is on.
