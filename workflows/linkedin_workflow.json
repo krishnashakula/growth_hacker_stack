@@ -1,0 +1,109 @@
+{
+  "name": "LinkedIn Growth Hacker",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "http://trending_service:8000/keywords"
+      },
+      "name": "Fetch Keywords",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [250, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Simple epsilon-greedy bandit\nconst hooks = ['Question','Stat','Story','Quote'];\nconst eps = 0.1;\nconst chosen = Math.random() < eps ? hooks[Math.floor(Math.random() * hooks.length)] : hooks[0];\nreturn [{ json: { hook_style: chosen, keywords: $json.keywords } }];"
+      },
+      "name": "Select Hook Style",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "none",
+        "httpMethod": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "jsonParameters": true,
+        "headerParameters": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{$env.OPENAI_API_KEY}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "bodyParametersJson": "={\"model\":\"gpt-3.5-turbo\",\"messages\":[{\"role\":\"user\",\"content\":\"Write a concise LinkedIn post in {{$json.hook_style}} style, incorporating these trending topics: {{$json.keywords.join(', ')}}.\"}],\"temperature\":0.7,\"max_tokens\":150}"
+      },
+      "name": "Generate Post via OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "none",
+        "httpMethod": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "jsonParameters": true,
+        "headerParameters": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{$env.LINKEDIN_ACCESS_TOKEN}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "X-RestLi-Protocol-Version",
+            "value": "2.0.0"
+          }
+        ],
+        "bodyParametersJson": "={\"author\":\"{{$env.LINKEDIN_PERSON_URN}}\",\"lifecycleState\":\"PUBLISHED\",\"visibility\":{\"com.linkedin.ugc.MemberNetworkVisibility\":\"PUBLIC\"},\"specificContent\":{\"com.linkedin.ugc.ShareContent\":{\"shareCommentary\":{\"text\":\"={{$json.choices[0].message.content}}\"},\"shareMediaCategory\":\"NONE\"}}}"
+      },
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [850, 200]
+    }
+  ],
+  "connections": {
+    "Fetch Keywords": {
+      "main": [
+        [
+          {
+            "node": "Select Hook Style",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Hook Style": {
+      "main": [
+        [
+          {
+            "node": "Generate Post via OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Post via OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

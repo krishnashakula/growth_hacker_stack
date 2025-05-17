@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # ------------------------- #
+  # PostgreSQL (state store)  #
+  # ------------------------- #
+  db:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  # ------------------------- #
+  # n8n orchestrator          #
+  # ------------------------- #
+  n8n:
+    image: n8nio/n8n:latest             # Community-node capable
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    env_file:
+      - .env
+    environment:
+      N8N_FLAGS: --tunnel
+      N8N_ENABLE_COMMUNITY_NODES: "true"
+    volumes:
+      - ./workflows:/home/node/.n8n/workflows
+    depends_on:
+      - db
+
+  # ------------------------- #
+  # FastAPI keyword service   #
+  # ------------------------- #
+  trending_service:
+    build:
+      context: ./service/trending_service
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - n8n
+
+  # ------------------------- #
+  # Hourly LinkedIn stats pull#
+  # ------------------------- #
+  analytics_fetcher:
+    build:
+      context: ./service/analytics_fetcher
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - n8n
+
+  # ------------------------- #
+  # Metabase dashboards       #
+  # ------------------------- #
+  metabase:
+    image: metabase/metabase:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${POSTGRES_DB}
+      MB_DB_PORT: ${POSTGRES_PORT}
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: db
+    depends_on:
+      - db
+
+volumes:
+  db_data:
