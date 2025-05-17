@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 app = FastAPI(title="Trending Keywords Service")
 
+
 def fetch_trends_rss(geo: str = "US", limit: int = 20):
     """
     Pull the “Trending Now” RSS from Google Trends.
@@ -21,6 +22,7 @@ def fetch_trends_rss(geo: str = "US", limit: int = 20):
         if len(titles) >= limit:
             break
     return titles
+
 
 @app.get("/keywords", summary="Get top trending search terms")
 def keywords(geo: str = "US", limit: int = 20):

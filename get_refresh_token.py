@@ -4,10 +4,10 @@ from praw import Reddit
 
 # ───────────────────────────────────────────────────────────────────────────────
 # 1️⃣ Load your credentials from environment
-CLIENT_ID     = os.getenv("REDDIT_CLIENT_ID")
+CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
-USER_AGENT    = os.getenv("REDDIT_USER_AGENT")
-REDIRECT_URI  = "http://localhost:65010/authorize_callback"
+USER_AGENT = os.getenv("REDDIT_USER_AGENT")
+REDIRECT_URI = "http://localhost:65010/authorize_callback"
 # ───────────────────────────────────────────────────────────────────────────────
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ reddit = Reddit(
 # ───────────────────────────────────────────────────────────────────────────────
 # 3️⃣ Build the OAuth URL (permanent = gives you a refresh token)
 scopes = ["read", "submit"]
-state  = "random_state_string"
+state = "random_state_string"
 auth_url = reddit.auth.url(scopes, state, "permanent")
 # ───────────────────────────────────────────────────────────────────────────────
 
@@ -32,9 +32,7 @@ auth_url = reddit.auth.url(scopes, state, "permanent")
 chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 if os.path.exists(chrome_path):
     webbrowser.register(
-        "chrome",
-        None,
-        webbrowser.BackgroundBrowser(f'"{chrome_path}"')
+        "chrome", None, webbrowser.BackgroundBrowser(f'"{chrome_path}"')
     )
     webbrowser.get("chrome").open(auth_url)
 else:
