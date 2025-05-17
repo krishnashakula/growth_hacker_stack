@@ -184,6 +184,6 @@ All secrets are managed in **`.env`**:
 
 ---
 
-MIT © [Your Name](https://github.com/yourname)
+MIT © [Krishna Shakula](https://github.com/krishnashakula)
 
 Enjoy autonomous growth! 🚀
