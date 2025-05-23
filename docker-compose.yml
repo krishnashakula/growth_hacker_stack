@@ -5,7 +5,7 @@ services:
   # PostgreSQL (state store)  #
   # ------------------------- #
   db:
-    image: postgres:14
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
