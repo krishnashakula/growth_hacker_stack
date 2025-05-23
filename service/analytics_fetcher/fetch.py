@@ -1,5 +1,5 @@
 import os, time, requests, psycopg2, schedule
-from datetime import datetime
+from datetime import datetime, UTC
 
 TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN")
 DB = dict(
@@ -25,7 +25,7 @@ def fetch_and_store():
                 pid,
                 data.get("likeCount", 0),
                 data.get("commentCount", 0),
-                datetime.utcnow(),
+                datetime.now(UTC),
             ),
         )
     conn.commit()
