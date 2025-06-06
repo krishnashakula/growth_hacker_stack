@@ -1,6 +1,19 @@
 import os
+import sys
+import types
 import webbrowser
-from praw import Reddit
+
+try:  # pragma: no cover - praw is optional for tests
+    from praw import Reddit  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - executed when dependency absent
+    praw_stub = types.ModuleType("praw")
+
+    class Reddit:  # type: ignore
+        def __init__(self, *a, **k):
+            raise ModuleNotFoundError("praw is required")
+
+    praw_stub.Reddit = Reddit
+    sys.modules.setdefault("praw", praw_stub)
 
 # ───────────────────────────────────────────────────────────────────────────────
 # 1️⃣ Load your credentials from environment
