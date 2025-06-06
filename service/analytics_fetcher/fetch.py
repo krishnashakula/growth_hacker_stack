@@ -1,5 +1,27 @@
-import os, time, requests, psycopg2, schedule
+import os
 from datetime import datetime, UTC
+
+# Third party libraries like ``requests`` or ``psycopg2`` aren't installed in
+# the test environment. Import them lazily and provide simple stubs so that the
+# tests can patch the expected attributes without the real dependencies being
+# available.
+try:  # pragma: no cover - executed only when deps are present
+    import requests  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - executed in CI
+    class _RequestsStub:
+        def get(self, *a, **k):
+            raise ModuleNotFoundError("requests is required")
+
+    requests = _RequestsStub()  # type: ignore
+
+try:  # pragma: no cover
+    import psycopg2  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    class _Psycopg2Stub:
+        def connect(self, *a, **k):
+            raise ModuleNotFoundError("psycopg2 is required")
+
+    psycopg2 = _Psycopg2Stub()  # type: ignore
 
 TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN")
 DB = dict(
@@ -34,6 +56,9 @@ def fetch_and_store():
 
 
 if __name__ == "__main__":
+    import schedule
+    import time
+
     schedule.every().hour.do(fetch_and_store)
     while True:
         schedule.run_pending()
