@@ -1,5 +1,7 @@
 # Environment
 .env
+.env.*
+!.env.example
 
 # Docker
 docker-compose.override.yml
@@ -8,9 +10,53 @@ docker-compose.override.yml
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
 
 # Node / n8n
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # IDEs
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+backups/
+*.sql
+*.sqlite
+
+# Security
+*.pem
+*.key
+*.crt
+secrets/
+
+# Analytics Fetcher specific
+service/analytics_fetcher/logs/
+service/analytics_fetcher/data/
+service/analytics_fetcher/audit.log

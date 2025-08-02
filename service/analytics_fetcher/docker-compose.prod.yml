@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  analytics-fetcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: analytics-fetcher
+    restart: unless-stopped
+    environment:
+      # Database Configuration
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-n8n_db}
+      - DB_USER=${DB_USER:-n8n_user}
+      - DB_PASS=${DB_PASS}
+      
+      # LinkedIn API Configuration
+      - LINKEDIN_API_KEY=${LINKEDIN_API_KEY}
+      - LINKEDIN_API_SECRET=${LINKEDIN_API_SECRET}
+      - LINKEDIN_PERSON_URN=${LINKEDIN_PERSON_URN}
+      
+      # Service Configuration
+      - FETCH_INTERVAL_SECONDS=${FETCH_INTERVAL_SECONDS:-3600}
+      - ANALYTICS_FETCHER_RUN_MODE=${ANALYTICS_FETCHER_RUN_MODE:-loop}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # HTTP Client Configuration
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-30}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+      - RETRY_DELAY=${RETRY_DELAY:-5}
+      
+      # Health Server Configuration
+      - ENABLE_HEALTH_SERVER=${ENABLE_HEALTH_SERVER:-true}
+      - HEALTH_PORT=${HEALTH_PORT:-8000}
+      
+      # Production Settings
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    ports:
+      - "8000:8000"  # Health check endpoint
+    networks:
+      - analytics-network
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  db:
+    image: postgres:15-alpine
+    container_name: analytics-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME:-n8n_db}
+      - POSTGRES_USER=${DB_USER:-n8n_user}
+      - POSTGRES_PASSWORD=${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - analytics-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-n8n_user} -d ${DB_NAME:-n8n_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: analytics-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - analytics-network
+    depends_on:
+      - analytics-fetcher
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: analytics-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - analytics-network
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  analytics-network:
+    driver: bridge 

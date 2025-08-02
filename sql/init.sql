@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS posts (
   post_id TEXT PRIMARY KEY,
   content TEXT,
-  keywords TEXT[],
+  keywords VARCHAR2(4000),
   hook_style TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );

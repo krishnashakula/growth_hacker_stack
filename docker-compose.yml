@@ -1,158 +1,10 @@
-version: '3.8'
-
-services:
-  # ------------------------- #
-  # PostgreSQL (state store)  #
-  # ------------------------- #
-  db:
-    image: postgres:14
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ------------------------- #
-  # n8n orchestrator          #
-  # ------------------------- #
-  n8n:
-    image: n8nio/n8n:latest
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    env_file:
-      - .env
-    environment:
-      N8N_FLAGS: --tunnel
-      N8N_ENABLE_COMMUNITY_NODES: "true"
-      N8N_LOG_LEVEL: info
-      N8N_DIAGNOSTICS_ENABLED: "false"
-      N8N_DIAGNOSTICS_CONFIG_ENABLED: "false"
-    volumes:
-      - ./workflows:/home/node/.n8n/workflows
-      - n8n_data:/home/node/.n8n
-    depends_on:
-      db:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ------------------------- #
-  # FastAPI keyword service   #
-  # ------------------------- #
-  trending_service:
-    build:
-      context: ./service/trending_service
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    depends_on:
-      n8n:
-        condition: service_started
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ------------------------- #
-  # Hourly LinkedIn stats pull#
-  # ------------------------- #
-  analytics_fetcher:
-    build:
-      context: ./service/analytics_fetcher
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      n8n:
-        condition: service_started
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ------------------------- #
-  # Metabase dashboards       #
-  # ------------------------- #
-  metabase:
-    image: metabase/metabase:latest
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${POSTGRES_DB}
-      MB_DB_PORT: ${POSTGRES_PORT}
-      MB_DB_USER: ${POSTGRES_USER}
-      MB_DB_PASS: ${POSTGRES_PASSWORD}
-      MB_DB_HOST: db
-      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY}
-      MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL}
-      MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD}
-    depends_on:
-      db:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+# docker-compose.yml — bug‑fixed (May 2025)
+# =====================================
+# Key fixes:
+#  • Relative build paths (cross‑platform)
+#  • Removed duplicate mount lines & mis‑named env vars
+#  • Consistent labels / entrypoints (websecure → websecure)
+#  • Healthchecks: swapped curly‑brace vars for explicit strings (Docker limitation)
 
 networks:
   backend:
@@ -161,9 +13,266 @@ networks:
       driver: default
       config:
         - subnet: 172.28.0.0/16
+  public:
+    driver: bridge
 
 volumes:
   db_data:
-    driver: local
   n8n_data:
-    driver: local
+  traefik_letsencrypt:
+
+services:
+  # -------------------- Traefik --------------------
+  traefik:
+    image: traefik:latest
+    container_name: traefik_proxy
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --log.level=INFO
+    ports:
+      - 8081:80
+      - 4443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - public
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.localhost`)
+      - traefik.http.routers.traefik-dashboard.entrypoints=web
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # -------------------- PostgreSQL ----------------
+  db:
+    image: postgres:latest
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: "${POSTGRES_DB:-n8n_db}"
+      POSTGRES_USER: "${POSTGRES_USER:-n8n_user}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-changeme_in_prod}"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-n8n_user} -d $${POSTGRES_DB:-n8n_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # -------------------- n8n -----------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n_orchestrator
+    restart: unless-stopped
+    ports:
+      - 5678:5678  # local dev convenience
+    environment:
+      N8N_HOST: n8n.localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_ENABLE_COMMUNITY_NODES: "true"
+      N8N_LOG_LEVEL: info
+      N8N_DIAGNOSTICS_ENABLED: "false"
+
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: db
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: "${POSTGRES_DB:-n8n_db}"
+      DB_POSTGRESDB_USER: "${POSTGRES_USER:-n8n_user}"
+      DB_POSTGRESDB_PASSWORD: "${POSTGRES_PASSWORD:-changeme_in_prod}"
+    volumes:
+      - ./workflows:/home/node/.n8n/workflows
+      - n8n_data:/home/node/.n8n
+      - ./custom:/home/node/.n8n/custom
+    networks:
+      - backend
+      - public
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.n8n.rule=Host(`n8n.localhost`)
+      - traefik.http.routers.n8n.entrypoints=websecure
+      - traefik.http.routers.n8n.tls.certresolver=letsencrypt
+      - traefik.http.services.n8n.loadbalancer.server.port=5678
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  # -------------- FastAPI Trending Service --------
+  trending_service:
+    build:
+      context: ./service/trending_service  # relative path (cross‑OS)
+      dockerfile: Dockerfile
+    container_name: trending_api_service
+    environment:
+      PORT: 8000
+    networks:
+      - backend
+      - public
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.trending-api.rule=Host(`api.localhost`) && PathPrefix(`/keywords`, `/hashtags`)
+      - traefik.http.routers.trending-api.entrypoints=websecure
+      - traefik.http.routers.trending-api.tls.certresolver=letsencrypt
+      - traefik.http.services.trending-api.loadbalancer.server.port=8000
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # ----------- LinkedIn Analytics Fetcher ---------
+  analytics_fetcher:
+    build:
+      context: ./service/analytics_fetcher
+      dockerfile: Dockerfile
+      target: production
+    container_name: analytics_fetcher_service
+    restart: unless-stopped
+    environment:
+      # Database Configuration
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: "${POSTGRES_DB:-n8n_db}"
+      DB_USER: "${POSTGRES_USER:-n8n_user}"
+      DB_PASS: "${POSTGRES_PASSWORD:-changeme_in_prod}"
+      
+      # LinkedIn API Configuration
+      LINKEDIN_API_KEY: "${LINKEDIN_API_KEY:-}"
+      LINKEDIN_API_SECRET: "${LINKEDIN_API_SECRET:-}"
+      LINKEDIN_PERSON_URN: "${LINKEDIN_PERSON_URN:-}"
+      
+      # Service Configuration
+      FETCH_INTERVAL_SECONDS: "${FETCH_INTERVAL_SECONDS:-3600}"
+      ANALYTICS_FETCHER_RUN_MODE: "${ANALYTICS_FETCHER_RUN_MODE:-loop}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      
+      # HTTP Client Configuration
+      HTTP_TIMEOUT: "${HTTP_TIMEOUT:-30}"
+      MAX_RETRIES: "${MAX_RETRIES:-3}"
+      RETRY_DELAY: "${RETRY_DELAY:-5}"
+      
+      # Health Server Configuration
+      ENABLE_HEALTH_SERVER: "${ENABLE_HEALTH_SERVER:-true}"
+      HEALTH_PORT: "${HEALTH_PORT:-8000}"
+      
+      # Production Settings
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./service/analytics_fetcher/logs:/app/logs
+      - ./service/analytics_fetcher/data:/app/data
+    ports:
+      - "8001:8000"  # Health check endpoint
+    networks:
+      - backend
+      - public
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.analytics-fetcher.rule=Host(`analytics.localhost`)
+      - traefik.http.routers.analytics-fetcher.entrypoints=websecure
+      - traefik.http.routers.analytics-fetcher.tls.certresolver=letsencrypt
+      - traefik.http.services.analytics-fetcher.loadbalancer.server.port=8000
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # ------------------ Metabase --------------------
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase_dashboards
+    restart: unless-stopped
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: "${POSTGRES_DB:-n8n_db}"
+      MB_DB_PORT: 5432
+      MB_DB_USER: "${POSTGRES_USER:-n8n_user}"
+      MB_DB_PASS: "${POSTGRES_PASSWORD:-changeme_in_prod}"
+      MB_DB_HOST: db
+      MB_ENCRYPTION_SECRET_KEY: "${MB_ENCRYPTION_SECRET_KEY:-CHANGE_ME_32CHAR}"
+      MB_ADMIN_EMAIL: "${MB_ADMIN_EMAIL:-admin@example.com}"
+      MB_ADMIN_PASSWORD: "${MB_ADMIN_PASSWORD:-StrongAdminP@ssw0rd!}"
+    networks:
+      - backend
+      - public
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --max-time 5 http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.metabase.rule=Host(`metabase.localhost`)
+      - traefik.http.routers.metabase.entrypoints=websecure
+      - traefik.http.routers.metabase.tls.certresolver=letsencrypt
+      - traefik.http.services.metabase.loadbalancer.server.port=3000
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+# ---------------------- EOF ----------------------

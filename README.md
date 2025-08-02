@@ -16,6 +16,7 @@ docker-compose up -d
 
 - n8n UI: http://localhost:5678  
 - Keyword API: http://localhost:8000/keywords  
+- Analytics Fetcher: http://localhost:8001/health
 - Metabase: http://localhost:3000
 
 Import `workflows/linkedin_workflow.json` into n8n (Settings ➜ Import).
@@ -26,6 +27,7 @@ Import `workflows/linkedin_workflow.json` into n8n (Settings ➜ Import).
 |--------------|--------------------------|
 | Orchestration| n8n (Docker)             |
 | AI Keywords  | FastAPI + HF Transformers|
+| Analytics    | LinkedIn Analytics Fetcher|
 | Scheduler    | n8n Cron → LinkedIn node |
 | Analytics DB | PostgreSQL               |
 | Dashboards   | Metabase                 |

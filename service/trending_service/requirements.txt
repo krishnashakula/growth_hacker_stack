@@ -1,3 +1,30 @@
-fastapi
-uvicorn
-requests
+# Web framework & ASGI server
+fastapi>=0.100.0,<0.112.0
+uvicorn[standard]>=0.20.0,<0.30.0
+
+# Settings management
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+
+# HTTP client
+httpx[http2]>=0.24.0,<0.28.0
+h2>=4.1.0,<5.0.0
+
+# Caching
+cachetools>=5.0.0,<6.0.0
+
+# XML parsing (optional but recommended)
+lxml>=4.9.0,<6.0.0
+
+# Retry logic
+tenacity>=8.0.0,<9.0.0
+
+# Metrics & rate limiting
+prometheus-fastapi-instrumentator>=6.0.0,<8.0.0
+slowapi>=0.1.8,<0.2.0
+
+# Logging
+python-json-logger>=2.0.0,<3.0.0
+
+# Production WSGI/ASGI server alternative
+gunicorn>=20.0.0,<23.0.0
